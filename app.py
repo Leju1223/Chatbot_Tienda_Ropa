@@ -36,9 +36,15 @@ def get_chatbot_response(user_message, user_session):
     # Convertir el mensaje a minúsculas para facilitar las comparaciones
     user_message = user_message.lower()
 
-    # Verificar si el mensaje es una pregunta general
-    if user_message in responses:
-        return responses[user_message]
+    # Si el nombre del usuario no ha sido solicitado, darle la bienvenida y preguntar su nombre
+    if 'nombre' not in user_session:
+        user_session['nombre'] = None
+        return "Bienvenido a Moda Store. ¿Cuál es tu nombre?"
+
+    # Guardar el nombre del usuario y continuar el flujo de compra
+    if user_session['nombre'] is None:
+        user_session['nombre'] = user_message.capitalize()
+        return f"Gracias, {user_session['nombre']}. ¿En qué puedo ayudarte hoy?"
 
     # Si el usuario ha comenzado a comprar
     if 'comprar' in user_message or 'quiero comprar' in user_message:
@@ -72,20 +78,19 @@ def get_chatbot_response(user_message, user_session):
             return f"Lo siento, no tenemos la talla {user_message} para {user_session['producto']}. Las tallas disponibles son: {', '.join(available_sizes[user_session['producto']])}."
 
     # Si el usuario proporciona una cantidad
-    if user_message.isdigit():
-        quantity = int(user_message)
-        user_session['cantidad'] = quantity
-        return f"Has seleccionado {quantity} {user_session['producto']} en color {user_session['color']} y talla {user_session['talla']}. ¿Cuál es tu dirección de envío?"
+    if 'cantidad' not in user_session and user_message.isdigit():
+        user_session['cantidad'] = int(user_message)
+        return f"Has seleccionado {user_session['cantidad']} {user_session['producto']} en color {user_session['color']} y talla {user_session['talla']}. ¿Cuál es tu dirección de envío?"
 
     # Si el usuario proporciona una dirección de envío
-    if 'direccion' in user_session and not user_session.get('pago'):
+    if 'direccion' not in user_session:
         user_session['direccion'] = user_message
-        return "Perfecto, ahora, ¿qué método de pago te gustaría usar? (Ejemplo: tarjeta de crédito, PayPal)"
+        return "Gracias. ¿Podrías proporcionarnos tu número de teléfono para coordinar la entrega?"
 
-    # Si el usuario proporciona un método de pago
-    if 'direccion' in user_session and 'pago' not in user_session:
-        user_session['pago'] = user_message
-        return f"¡Gracias por tu compra! Hemos recibido tu pedido de {user_session['cantidad']} {user_session['producto']} en color {user_session['color']} y talla {user_session['talla']}, y será enviado a {user_session['direccion']}. El pago será realizado con {user_session['pago']}."
+    # Si el usuario proporciona un número de teléfono
+    if 'telefono' not in user_session:
+        user_session['telefono'] = user_message
+        return f"Perfecto, {user_session['nombre']}. Tu pedido de {user_session['cantidad']} {user_session['producto']} en color {user_session['color']} y talla {user_session['talla']} será enviado a {user_session['direccion']} en los próximos 2 días. Nos pondremos en contacto al {user_session['telefono']} para coordinar la entrega. ¡Gracias por tu compra!"
 
     # Respuesta predeterminada para preguntas que no están en el flujo de compra
     return "Lo siento, no entiendo la pregunta. ¿Puedes reformularla?"
@@ -101,7 +106,7 @@ def chat():
 
     user_message = data.get('message')
 
-    # Obtener el identificador de la sesión si existe
+    # Obtener la sesión del usuario
     user_session = session_data.get('session', {})
 
     # Obtener la respuesta del chatbot
@@ -117,4 +122,5 @@ def chat():
     })
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
